@@ -1,27 +1,15 @@
 <script setup>
-/**
- * COMPONENTE DE PRESENTACIÓN: Visualización de la lista de tareas.
- * Utiliza Reactividad de Vue 3 (Composition API) y Lifecycle Hooks.
- * 
- * PRESENTATION COMPONENT: Task list visualization.
- * Leverages Vue 3 Reactivity (Composition API) and Lifecycle Hooks.
- */
 import { ref, onMounted } from 'vue'
 import tasksService from '../services/tasksService'
 
-// Estado Reactivo: Mantiene la sincronización entre el JS y el DOM.
-// Reactive State: Maintains synchronization between JS and the DOM.
 const tasks = ref([])
 const loading = ref(true)
 const error = ref(null)
 
-/**
- * Función asíncrona para la orquestación del fetch de datos.
- * Asynchronous function for data fetch orchestration.
- */
 const fetchTasks = async () => {
   try {
     loading.value = true
+    // 2. Usamos el servicio. ¡Mucho más limpio!
     const response = await tasksService.getTasks()
     tasks.value = response.data
   } catch (err) {
@@ -32,8 +20,6 @@ const fetchTasks = async () => {
   }
 }
 
-// Hook de Ciclo de Vida: Ejecución inmediata al montar el componente.
-// Lifecycle Hook: Immediate execution upon component mount.
 onMounted(() => {
   fetchTasks()
 })
@@ -63,7 +49,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* Estilos / Styles  */
+/* Estilos sencillos para que se vea profesional */
 .tasks-container { max-width: 500px; margin: 2rem auto; text-align: left; }
 .task-list { list-style: none; padding: 0; }
 .task-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; gap: 10px; }
