@@ -1,32 +1,30 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import tasksService from '../services/tasksService'
 
-// 1. "Cajas" reactivas para guardar la información
 const tasks = ref([])
 const loading = ref(true)
 const error = ref(null)
 
-// 2. Función para pedir datos a Django
 const fetchTasks = async () => {
   try {
     loading.value = true
-    // IMPORTANTE: Aquí usamos el puerto 8000 de tu Backend
-    const response = await axios.get('http://127.0.0.1:8000/api/tasks/')
+    // 2. Usamos el servicio. ¡Mucho más limpio!
+    const response = await tasksService.getTasks()
     tasks.value = response.data
   } catch (err) {
-    console.error('Error:', err)
-    error.value = 'No se pudo conectar con el servidor de Django.'
+    console.error('Error fetching tasks:', err)
+    error.value = 'No se pudo conectar con el servidor.'
   } finally {
     loading.value = false
   }
 }
 
-// 3. Cuando el componente se carga por primera vez, llama a la API
 onMounted(() => {
   fetchTasks()
 })
 </script>
+
 
 <template>
   <div class="tasks-container">
