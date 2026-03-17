@@ -1,7 +1,9 @@
 <script setup>
-import HelloWorld from './components/HelloWorld.vue'
+import TasksList from './components/TasksList.vue'
 </script>
 
 <template>
-  <HelloWorld />
+  <main>
+    <TasksList />
+  </main>
 </template>
