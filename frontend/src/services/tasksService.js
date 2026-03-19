@@ -58,10 +58,48 @@ export default {
   },
   
   /**
-   * Crea una nueva tarea enviándola al servidor.
-   * Creates a new task by posting it to the server.
+   * Crea una nueva tarea. Si el servidor está caído, la guarda en local
+   * con una marca para sincronizarla más tarde.
+   * Creates a new task. If server is down, saves locally for later sync.
    */
-  createTask(taskData) {
-    return apiClient.post('tasks/', taskData);
+  async createTask(taskData) {
+    try {
+      // 1. Intentamos enviarla a Django
+      const response = await apiClient.post('tasks/', taskData);
+      
+      // 2. Si hay éxito, actualizamos la caja fuerte (LocalStorage)
+      const cachedData = localStorage.getItem(CACHE_KEY);
+      if (cachedData) {
+        const tasksList = JSON.parse(cachedData); // Abrimos la caja
+        tasksList.unshift(response.data);         // Metemos la nueva
+        localStorage.setItem(CACHE_KEY, JSON.stringify(tasksList)); // Cerramos la caja
+      }
+      
+      return response;
+      
+    } catch (error) {
+      // 3. ¡Django está apagado o no hay internet! (Modo Supervivencia)
+      console.warn("Servidor inalcanzable. Guardando tarea en modo offline...");
+      
+      // Creamos una tarea simulada con un ID temporal basado en la fecha
+      const offlineTask = {
+        id: Date.now(),
+        title: taskData.title,
+        completed: false,
+        sync_pending: true // Nuestra marca secreta PWA
+      };
+      
+      // Abrimos la caja fuerte local o creamos una lista vacía si no hay
+      const cachedData = localStorage.getItem(CACHE_KEY);
+      const tasksList = cachedData ? JSON.parse(cachedData) : [];
+      
+      // Insertamos la tarea simulada
+      tasksList.unshift(offlineTask);
+      localStorage.setItem(CACHE_KEY, JSON.stringify(tasksList));
+      
+      // Le devolvemos la tarea falsa a Vue para que la pinte en pantalla
+      return { data: offlineTask };
+    }
   }
-};
+  
+}
