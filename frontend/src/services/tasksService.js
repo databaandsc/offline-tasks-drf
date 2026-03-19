@@ -15,5 +15,10 @@ export default {
   // Función para obtener todas las tareas
   getTasks() {
     return apiClient.get('tasks/');
+  },
+  
+  // Función para crear una nueva tarea
+  createTask(taskData) {
+    return apiClient.post('tasks/', taskData);
   }
 };
