@@ -60,8 +60,23 @@ const addTask = async () => {
 // Hook de Ciclo de Vida: Ejecución inmediata al montar el componente.
 // Lifecycle Hook: Immediate execution upon component mount.
 onMounted(() => {
-  fetchTasks()
+  fetchTasks();
+
+  // Escuchamos el evento nativo del navegador 'online'
+  // We listen to the native browser 'online' event
+  window.addEventListener('online', async () => {
+    console.log("[Sync] Connection restored! Initiating synchronization...");
+    
+    const updatedTasks = await tasksService.syncOfflineTasks();
+    
+    if (updatedTasks) {
+      // Si hubo sincronización, actualizamos la lista visual para tener los IDs reales de Django
+      // If sync occurred, we update the visual list to reflect real Django IDs
+      tasks.value = updatedTasks;
+    }
+  });
 })
+
 </script>
 
 <template>

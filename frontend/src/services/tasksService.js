@@ -64,42 +64,100 @@ export default {
    */
   async createTask(taskData) {
     try {
-      // 1. Intentamos enviarla a Django
+      // Intentamos enviarla a Django
+      // Attempting to send it to Django
       const response = await apiClient.post('tasks/', taskData);
       
-      // 2. Si hay éxito, actualizamos la caja fuerte (LocalStorage)
+      // Si hay éxito, actualizamos la caché (LocalStorage)
+      // On success, we update the cache (LocalStorage)
       const cachedData = localStorage.getItem(CACHE_KEY);
       if (cachedData) {
-        const tasksList = JSON.parse(cachedData); // Abrimos la caja
-        tasksList.unshift(response.data);         // Metemos la nueva
-        localStorage.setItem(CACHE_KEY, JSON.stringify(tasksList)); // Cerramos la caja
+        const tasksList = JSON.parse(cachedData); 
+        tasksList.unshift(response.data);         
+        localStorage.setItem(CACHE_KEY, JSON.stringify(tasksList)); 
       }
       
       return response;
       
     } catch (error) {
-      // 3. ¡Django está apagado o no hay internet! (Modo Supervivencia)
-      console.warn("Servidor inalcanzable. Guardando tarea en modo offline...");
+      // ¡Django está apagado o no hay internet! (Modo Offline)
+      // Django is down or there is no internet! (Offline Mode)
+      console.warn("Unreachable server. Saving task in offline mode...");
       
       // Creamos una tarea simulada con un ID temporal basado en la fecha
+      // We create a simulated task with a temporary date-based ID
       const offlineTask = {
         id: Date.now(),
         title: taskData.title,
         completed: false,
-        sync_pending: true // Nuestra marca secreta PWA
+        sync_pending: true // Nuestra marca interna / Our internal marker
       };
       
-      // Abrimos la caja fuerte local o creamos una lista vacía si no hay
+      // Recuperamos la caché local o creamos una lista vacía si no existe
+      // We retrieve the local cache or create an empty list if it doesn't exist
       const cachedData = localStorage.getItem(CACHE_KEY);
       const tasksList = cachedData ? JSON.parse(cachedData) : [];
       
       // Insertamos la tarea simulada
+      // We insert the simulated task
       tasksList.unshift(offlineTask);
       localStorage.setItem(CACHE_KEY, JSON.stringify(tasksList));
       
-      // Le devolvemos la tarea falsa a Vue para que la pinte en pantalla
+      // Devolvemos la tarea simulada a Vue para que la renderice
+      // We return the simulated task to Vue so it can render it
       return { data: offlineTask };
     }
+  },
+
+  /**
+   * Busca tareas pendientes en local y las envía al servidor al recuperar conexión.
+   * Scans for pending local tasks and sends them to the server upon connection recovery.
+   */
+  async syncOfflineTasks() {
+    const cachedData = localStorage.getItem(CACHE_KEY);
+    if (!cachedData) return;
+
+    let tasksList = JSON.parse(cachedData);
+    
+    // Filtramos las tareas que tienen nuestra marca 'sync_pending'
+    // We filter out the tasks that carry our 'sync_pending' marker
+    const pendingTasks = tasksList.filter(task => task.sync_pending);
+    
+    if (pendingTasks.length === 0) return;
+
+    console.log(`[Sync] Synchronizing ${pendingTasks.length} pending tasks...`);
+
+    for (const task of pendingTasks) {
+      try {
+        // Preparamos los datos limpios (sin el ID temporal ni la marca)
+        // We prepare clean data (removing temporary ID and marker)
+        const cleanData = {
+          title: task.title,
+          completed: task.completed
+        };
+
+        // Realizamos la petición real al servidor
+        // We perform the actual request to the server
+        const response = await apiClient.post('tasks/', cleanData);
+        
+        // Actualizamos caché local reemplazando la tarea temporal por la real
+        // We update local cache replacing the temporary task with the real one
+        tasksList = tasksList.map(t => 
+          t.id === task.id ? response.data : t
+        );
+        
+        console.log(`[Sync] Task '${task.title}' successfully synchronized.`);
+      } catch (error) {
+        console.error(`[Sync] Failed to synchronize task '${task.title}':`, error);
+      }
+    }
+
+    // Guardamos la lista actualizada (sin las marcas de los que tuvieron éxito)
+    // We save the updated list (without markers for successful ones)
+    localStorage.setItem(CACHE_KEY, JSON.stringify(tasksList));
+    
+    // Retornamos la lista para actualizar la vista
+    // We return the list to trigger a view update
+    return tasksList;
   }
-  
 }
