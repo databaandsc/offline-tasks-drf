@@ -57,6 +57,37 @@ const addTask = async () => {
   }
 }
 
+// Función para cambiar el estado de completado
+// Function to toggle completion status
+const toggleTask = async (task) => {
+  try {
+    const updatedData = { completed: !task.completed };
+    // Llamamos a nuestro nuevo servicio
+    // We call our new service
+    const response = await tasksService.updateTask(task.id, updatedData);
+    
+    // Y actualizamos visualmente el estado
+    // And visually update the state
+    task.completed = response.data.completed;
+  } catch (err) {
+    console.error("[Error] Failed to update task:", err);
+  }
+}
+
+// Función para eliminar definitivamente
+// Function to delete definitively
+const removeTask = async (id) => {
+  try {
+    await tasksService.deleteTask(id);
+    // Para no recargar, simplemente filtramos nuestra lista en pantalla
+    // To avoid reload, we simply filter our list on screen
+    tasks.value = tasks.value.filter(t => t.id !== id);
+  } catch (err) {
+    console.error("[Error] Failed to delete task:", err);
+  }
+}
+
+
 // Hook de Ciclo de Vida: Ejecución inmediata al montar el componente.
 // Lifecycle Hook: Immediate execution upon component mount.
 onMounted(() => {
@@ -101,9 +132,21 @@ onMounted(() => {
     <p v-else-if="tasks.length === 0" class="empty">Aún no hay tareas. ¡Empieza a crear una!</p>
     
     <ul v-else class="task-list">
-      <li v-for="task in tasks" :key="task.id" class="task-item">
-        <span class="status">{{ task.completed ? '✓' : '◯' }}</span>
-        <span>{{ task.title }}</span>
+      <!-- El v-if es para ocultar inmediatamente de la vista las tareas borradas offline -->
+      <li v-for="task in tasks" :key="task.id" class="task-item" v-if="!task.delete_pending">
+        
+        <!-- Círculo que se puede clickear -->
+        <span @click="toggleTask(task)" class="status toggle-btn">
+          {{ task.completed ? '✓' : '◯' }}
+        </span>
+        
+        <!-- Texto de la tarea, que se tacha si está completada -->
+        <span :class="{ 'task-done': task.completed }" class="task-title">
+          {{ task.title }}
+        </span>
+        
+        <!-- Botón de papelera / Borrar -->
+        <button @click="removeTask(task.id)" class="delete-btn">X</button>
       </li>
     </ul>
   </div>
@@ -127,4 +170,22 @@ onMounted(() => {
 .status { font-weight: bold; color: #42b983; font-size: 18px; }
 .loading, .error, .empty { text-align: center; color: #666; font-style: italic; }
 .error { color: #d9534f; }
+
+/* Nuevos estilos para Misión 2 */
+.toggle-btn { cursor: pointer; user-select: none; width: 30px;}
+.toggle-btn:hover { opacity: 0.7; }
+.task-title { flex: 1; transition: color 0.3s; }
+.task-done { text-decoration: line-through; color: #a0a0a0; }
+
+.delete-btn {
+  background-color: transparent;
+  color: #ff5252;
+  border: 1px solid #ff5252;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+.delete-btn:hover { background-color: #ff5252; color: white; }
 </style>

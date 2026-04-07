@@ -109,6 +109,87 @@ export default {
     }
   },
 
+    /**
+   * Actualiza una tarea. Si está offline, la actualiza en la caché local.
+   * Updates a task. If offline, it updates it in the local cache.
+   */
+    async updateTask(taskId, taskData) {
+      try {
+        // Intentamos usar PATCH para enviar solo lo que cambió (ej: completed: true)
+        // We try using PATCH to send only what changed (e.g., completed: true)
+        const response = await apiClient.patch(`tasks/${taskId}/`, taskData);
+        
+        // Actualizamos la caché local
+        // We update the local cache
+        const cachedData = localStorage.getItem(CACHE_KEY);
+        if (cachedData) {
+          let tasksList = JSON.parse(cachedData);
+          tasksList = tasksList.map(t => t.id === taskId ? response.data : t);
+          localStorage.setItem(CACHE_KEY, JSON.stringify(tasksList));
+        }
+        return response;
+      } catch (error) {
+        console.warn("[Offline] Updating task locally...");
+        
+        // Modo Offline: Modificamos la tarea y le ponemos otra marca
+        // Offline Mode: We modify the task and add another marker
+        const cachedData = localStorage.getItem(CACHE_KEY);
+        let tasksList = cachedData ? JSON.parse(cachedData) : [];
+        let updatedTask = null;
+        
+        tasksList = tasksList.map(t => {
+          if (t.id === taskId) {
+             updatedTask = { ...t, ...taskData, update_pending: true };
+             return updatedTask;
+          }
+          return t;
+        });
+        
+        localStorage.setItem(CACHE_KEY, JSON.stringify(tasksList));
+        return { data: updatedTask };
+      }
+    },
+  
+    /**
+     * Borra una tarea. Si es una tarea offline o no hay red, la maneja en caché.
+     * Deletes a task. If it's an offline task or network is down, handles in cache.
+     */
+    async deleteTask(taskId) {
+      try {
+        // Si el ID es gigante y numérico (nuestro invento), no existe en Django
+        // If the ID is a huge number (our invention), it does not exist in Django
+        if (typeof taskId === 'number' && taskId > 1000000000000) {
+          throw new Error("Temporary offline ID");
+        }
+        
+        // Intentamos borrar en el servidor real
+        // We try to delete in the real server
+        await apiClient.delete(`tasks/${taskId}/`);
+        
+        // Eliminamos de la caché local si tuvo éxito
+        // We remove from local cache upon success
+        const cachedData = localStorage.getItem(CACHE_KEY);
+        if (cachedData) {
+          const tasksList = JSON.parse(cachedData).filter(t => t.id !== taskId);
+          localStorage.setItem(CACHE_KEY, JSON.stringify(tasksList));
+        }
+        return { data: { success: true } };
+        
+      } catch (error) {
+        console.warn("[Offline] Marking task for deletion...");
+        
+        // Modo Offline: En lugar de borrar la tarea (para no perderla si el server vive), la marcamos
+        // Offline Mode: Instead of deleting (to avoid losing it if server is up), we mark it
+        const cachedData = localStorage.getItem(CACHE_KEY);
+        if (cachedData) {
+          let tasksList = JSON.parse(cachedData);
+          tasksList = tasksList.map(t => t.id === taskId ? { ...t, delete_pending: true } : t);
+          localStorage.setItem(CACHE_KEY, JSON.stringify(tasksList));
+        }
+        return { data: { success: true } };
+      }
+    },  
+
   /**
    * Busca tareas pendientes en local y las envía al servidor al recuperar conexión.
    * Scans for pending local tasks and sends them to the server upon connection recovery.
